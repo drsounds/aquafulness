@@ -10,13 +10,22 @@ import UIKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
-
+    static var brandPrimary: UIColor = UIColor(red: 0,green: 0.7, blue: 0.7, alpha: 1);
     var window: UIWindow?
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
-        UIApplication.shared.keyWindow?.tintColor = UIColor(red: 0, green: 0, blue: 255, alpha: 1);
+        UIButton.appearance().tintColor = AppDelegate.brandPrimary;
+        UIApplication.shared.keyWindow?.tintColor = AppDelegate.brandPrimary;
+        UITabBar.appearance().backgroundColor = AppDelegate.brandPrimary;
+        UITabBar.appearance().barStyle = UIBarStyle.default;
+        UITabBar.appearance().barTintColor = AppDelegate.brandPrimary;
+        UITabBar.appearance().tintColor = UIColor.white;
+        UITabBarItem.appearance().setTitleTextAttributes( [NSForegroundColorAttributeName: UIColor(red: 1, green: 1, blue: 1, alpha: 0.5)], for: UIControlState.normal);
+        UITabBarItem.appearance().setTitleTextAttributes( [NSForegroundColorAttributeName: UIColor(red: 1, green: 1, blue: 1, alpha: 1)], for: UIControlState.selected);
+        UINavigationBar.appearance().backgroundColor = AppDelegate.brandPrimary;
+        UINavigationBar.appearance().tintColor = AppDelegate.brandPrimary;
         
         return true
     }
