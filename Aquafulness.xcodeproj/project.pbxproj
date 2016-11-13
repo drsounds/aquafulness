@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5022324E1DD8E30900828AD2 /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5022324D1DD8E30900828AD2 /* MapViewController.swift */; };
+		5022324F1DD8E30900828AD2 /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5022324D1DD8E30900828AD2 /* MapViewController.swift */; };
 		5040DFB91DD6499B007744DD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5040DFB81DD6499B007744DD /* AppDelegate.swift */; };
 		5040DFBB1DD6499B007744DD /* FirstViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5040DFBA1DD6499B007744DD /* FirstViewController.swift */; };
 		5040DFBD1DD6499B007744DD /* SecondViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5040DFBC1DD6499B007744DD /* SecondViewController.swift */; };
@@ -15,6 +17,10 @@
 		5040DFC51DD6499B007744DD /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5040DFC31DD6499B007744DD /* LaunchScreen.storyboard */; };
 		5040DFD01DD6499B007744DD /* AquafulnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5040DFCF1DD6499B007744DD /* AquafulnessTests.swift */; };
 		5040DFDB1DD6499B007744DD /* AquafulnessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5040DFDA1DD6499B007744DD /* AquafulnessUITests.swift */; };
+		508DD4B31DD733A100857D9B /* MapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508DD4B21DD733A100857D9B /* MapKit.framework */; };
+		50D75DCE1DD7311C00940EDF /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 50D75DCD1DD7311C00940EDF /* Settings.bundle */; };
+		50D75DCF1DD7311C00940EDF /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 50D75DCD1DD7311C00940EDF /* Settings.bundle */; };
+		50D75DD01DD7311C00940EDF /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 50D75DCD1DD7311C00940EDF /* Settings.bundle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,6 +41,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		5022324D1DD8E30900828AD2 /* MapViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MapViewController.swift; sourceTree = "<group>"; };
 		5040DFB51DD6499B007744DD /* Aquafulness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aquafulness.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5040DFB81DD6499B007744DD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5040DFBA1DD6499B007744DD /* FirstViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstViewController.swift; sourceTree = "<group>"; };
@@ -49,6 +56,8 @@
 		5040DFD61DD6499B007744DD /* AquafulnessUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AquafulnessUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5040DFDA1DD6499B007744DD /* AquafulnessUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquafulnessUITests.swift; sourceTree = "<group>"; };
 		5040DFDC1DD6499B007744DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		508DD4B21DD733A100857D9B /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
+		50D75DCD1DD7311C00940EDF /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = Settings.bundle; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				508DD4B31DD733A100857D9B /* MapKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +89,8 @@
 		5040DFAC1DD6499B007744DD = {
 			isa = PBXGroup;
 			children = (
+				508DD4B11DD7338900857D9B /* Frameworks */,
+				50D75DCC1DD72FFD00940EDF /* Resources */,
 				5040DFB71DD6499B007744DD /* Aquafulness */,
 				5040DFCE1DD6499B007744DD /* AquafulnessTests */,
 				5040DFD91DD6499B007744DD /* AquafulnessUITests */,
@@ -100,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				5040DFB81DD6499B007744DD /* AppDelegate.swift */,
+				5022324D1DD8E30900828AD2 /* MapViewController.swift */,
 				5040DFBA1DD6499B007744DD /* FirstViewController.swift */,
 				5040DFBC1DD6499B007744DD /* SecondViewController.swift */,
 				5040DFBE1DD6499B007744DD /* Main.storyboard */,
@@ -126,6 +139,22 @@
 				5040DFDC1DD6499B007744DD /* Info.plist */,
 			);
 			path = AquafulnessUITests;
+			sourceTree = "<group>";
+		};
+		508DD4B11DD7338900857D9B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				508DD4B21DD733A100857D9B /* MapKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		50D75DCC1DD72FFD00940EDF /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				50D75DCD1DD7311C00940EDF /* Settings.bundle */,
+			);
+			name = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -238,6 +267,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50D75DCE1DD7311C00940EDF /* Settings.bundle in Resources */,
 				5040DFC51DD6499B007744DD /* LaunchScreen.storyboard in Resources */,
 				5040DFC21DD6499B007744DD /* Assets.xcassets in Resources */,
 				5040DFC01DD6499B007744DD /* Main.storyboard in Resources */,
@@ -248,6 +278,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50D75DCF1DD7311C00940EDF /* Settings.bundle in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -255,6 +286,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50D75DD01DD7311C00940EDF /* Settings.bundle in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,6 +300,7 @@
 				5040DFBD1DD6499B007744DD /* SecondViewController.swift in Sources */,
 				5040DFB91DD6499B007744DD /* AppDelegate.swift in Sources */,
 				5040DFBB1DD6499B007744DD /* FirstViewController.swift in Sources */,
+				5022324E1DD8E30900828AD2 /* MapViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,6 +317,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5040DFDB1DD6499B007744DD /* AquafulnessUITests.swift in Sources */,
+				5022324F1DD8E30900828AD2 /* MapViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -420,10 +454,12 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				DEVELOPMENT_TEAM = H4NNAZ9H4Z;
 				INFOPLIST_FILE = Aquafulness/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = se.drsounds.Aquafulness;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 3.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -434,10 +470,12 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				DEVELOPMENT_TEAM = H4NNAZ9H4Z;
 				INFOPLIST_FILE = Aquafulness/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = se.drsounds.Aquafulness;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 3.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -518,6 +556,7 @@
 				5040DFE11DD6499B007744DD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		5040DFE21DD6499B007744DD /* Build configuration list for PBXNativeTarget "AquafulnessTests" */ = {
 			isa = XCConfigurationList;
@@ -526,6 +565,7 @@
 				5040DFE41DD6499B007744DD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		5040DFE51DD6499B007744DD /* Build configuration list for PBXNativeTarget "AquafulnessUITests" */ = {
 			isa = XCConfigurationList;
@@ -534,6 +574,7 @@
 				5040DFE71DD6499B007744DD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
