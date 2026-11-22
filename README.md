@@ -1,6 +1,6 @@
 # Aquafulness
 
-A first-person swimming experience built with Vite, Three.js and WebGL. Float on a procedural ocean, swim at your own pace, and change the conditions as you go.
+A first-person swimming experience built with Vite, Three.js and WebGL. Float on a detailed procedural ocean, explore a sandy coastline and textured seabed, swim at your own pace, and change the conditions as you go.
 
 ## Run locally
 
