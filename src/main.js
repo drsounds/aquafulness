@@ -88,35 +88,132 @@ const waterUniforms = {
   direction: { value: settings.wave }, waterColor: { value: new THREE.Color('#197b80') },
   fogColor: { value: scene.fog.color }, depth: { value: settings.depth }
 }
-const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900, 200, 200), new THREE.ShaderMaterial({
+const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900, 220, 220), new THREE.ShaderMaterial({
   uniforms: waterUniforms, transparent: true,
   vertexShader: `
     uniform float time, amplitude, wind; uniform vec2 direction; varying vec3 vWorld; varying float vHeight;
     float waves(vec2 p) {
       vec2 d = normalize(direction); vec2 side = vec2(-d.y,d.x);
-      return amplitude * (sin(dot(p,d)*.11-time*(.65+wind))*.85 + sin(dot(p,normalize(d+side*.65))*.23-time*1.1)*.32 + sin(dot(p,side)*.38+time*.7)*.12);
+      return amplitude * (
+        sin(dot(p,d)*.09-time*(.58+wind))*.75 +
+        sin(dot(p,normalize(d+side*.7))*.19-time*.83)*.3 +
+        sin(dot(p,side)*.31+time*.63)*.12 +
+        sin(dot(p,normalize(d-side*.42))*.47-time*1.37)*.045 +
+        sin(dot(p,normalize(side+d*.28))*.82+time*.91)*.018
+      );
     }
     void main() { vec4 world = modelMatrix * vec4(position,1.0); world.y += waves(world.xz); vHeight = world.y; vWorld = world.xyz; gl_Position = projectionMatrix * viewMatrix * world; }`,
   fragmentShader: `
-    uniform vec3 waterColor, fogColor; uniform float depth, time, wind; varying vec3 vWorld; varying float vHeight;
+    uniform vec3 waterColor, fogColor; uniform float depth, time, wind, amplitude; varying vec3 vWorld; varying float vHeight;
+    float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y); }
     void main() {
       vec3 n = normalize(cross(dFdy(vWorld), dFdx(vWorld))); if (n.y < 0.0) n = -n;
-      n = normalize(n + vec3(cos(vWorld.x*.8+time*.9)*.055 + cos(vWorld.x*1.7+vWorld.z*.6-time)*.025, 0.0, sin(vWorld.z*.9-time*.8)*.055 + cos(vWorld.z*1.5-vWorld.x*.4+time)*.025) * (0.25 + wind));
+      float detail = noise(vWorld.xz*.72 + vec2(time*.035,-time*.025)) - .5;
+      n = normalize(n + vec3(
+        cos(vWorld.x*.8+time*.9)*.045 + cos(vWorld.x*1.7+vWorld.z*.6-time)*.022 + detail*.13,
+        0.0,
+        sin(vWorld.z*.9-time*.8)*.045 + cos(vWorld.z*1.5-vWorld.x*.4+time)*.022 - detail*.13
+      ) * (0.25 + wind));
       vec3 viewDir = normalize(cameraPosition-vWorld); float fresnel = pow(1.0-max(dot(viewDir,n),0.0),3.0);
       vec3 sun = normalize(vec3(-.36,.24,-.9)); float shine = pow(max(dot(reflect(-sun,n),viewDir),0.0),80.0);
-      float ripples = sin(vWorld.x*.7+time)*sin(vWorld.z*.8-time*.7)*.025;
-      vec3 col = mix(waterColor * (.75 + vHeight*.08 + ripples), vec3(.67,.79,.75), .24 + fresnel*.55);
-      col += vec3(1.0,.95,.79)*shine*(.4+wind*.4);
+      float broadShine = pow(max(dot(reflect(-sun,n),viewDir),0.0),14.0);
+      float ripples = sin(vWorld.x*.7+time)*sin(vWorld.z*.8-time*.7)*.018 + detail*.025;
+      float foam = smoothstep(amplitude*.72, amplitude*1.15, vHeight) * smoothstep(.58,.88,amplitude);
+      foam *= smoothstep(.32,.68,noise(vWorld.xz*.24 + vec2(time*.08,-time*.05)));
+      vec3 deepColor = waterColor * vec3(.38,.67,.7);
+      vec3 col = mix(deepColor, waterColor * (1.0 + vHeight*.08 + ripples), .72);
+      col = mix(col, vec3(.67,.79,.75), .18 + fresnel*.62);
+      col += vec3(1.0,.95,.79)*(shine*(.34+wind*.3) + broadShine*.08);
+      col = mix(col, vec3(.83,.88,.79), foam*.42);
       float fog = 1.0-exp(-pow(length(cameraPosition-vWorld)*.006,2.0)); col = mix(col,fogColor,fog);
-      gl_FragColor = vec4(col, mix(.72,.96,clamp(depth/30.0,0.0,1.0)));
+      gl_FragColor = vec4(col, mix(.76,.97,clamp(depth/30.0,0.0,1.0)));
     }`
 }))
 water.rotation.x = -Math.PI / 2
 scene.add(water)
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ color: '#b5a680' }))
+const floorUniforms = { time: { value: 0 }, depth: { value: settings.depth }, rock: { value: 0 }, sandColor: { value: new THREE.Color('#b5a680') }, fogColor: { value: scene.fog.color } }
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.ShaderMaterial({
+  uniforms: floorUniforms,
+  vertexShader: `
+    varying vec3 vWorld;
+    void main() {
+      vec4 world = modelMatrix * vec4(position, 1.0);
+      vWorld = world.xyz;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }`,
+  fragmentShader: `
+    uniform float time, depth, rock; uniform vec3 sandColor, fogColor; varying vec3 vWorld;
+    float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y); }
+    void main() {
+      vec2 p = vWorld.xz;
+      float grain = noise(p*1.8)*.42 + noise(p*8.0)*.2 + noise(p*34.0)*.08;
+      float ripples = sin(p.x*.8 + sin(p.y*.35)*2.0)*.5 + .5;
+      float caustics = pow(max(0.0, sin(p.x*.24 + time*.8)*sin(p.y*.29-time*.62)), 7.0);
+      vec3 sand = sandColor * (.72 + grain*.58 + ripples*.08);
+      vec3 stone = mix(vec3(.12,.2,.19), vec3(.34,.4,.34), grain + ripples*.12);
+      vec3 col = mix(sand + caustics*vec3(.17,.22,.16), stone, rock);
+      col *= exp(-depth*.012);
+      float fog = 1.0-exp(-pow(length(cameraPosition-vWorld)*.004,2.0));
+      col = mix(col, fogColor, fog*.8);
+      gl_FragColor = vec4(col, 1.0);
+    }`
+}))
 floor.rotation.x = -Math.PI / 2
 floor.position.y = -settings.depth
 scene.add(floor)
+
+const beachPositions = []
+const beachIndices = []
+const beachSegments = 150
+const beachRows = 76
+for (let row = 0; row <= beachRows; row++) {
+  const z = -210 - row / beachRows * 500
+  for (let column = 0; column <= beachSegments; column++) {
+    const x = -650 + column / beachSegments * 1300
+    const shoreline = Math.sin(x * .007 + z * .016) * 1.2 + Math.sin(x * .021 - z * .009) * .35
+    const dune = Math.max(0, -z - 215) * .08
+    const ridge = Math.sin(x * .009 + z * .014) * Math.max(0, -z - 235) * .003
+    beachPositions.push(x, -1.8 + dune + shoreline + ridge, z)
+  }
+}
+for (let row = 0; row < beachRows; row++) {
+  for (let column = 0; column < beachSegments; column++) {
+    const a = row * (beachSegments + 1) + column
+    const b = a + beachSegments + 1
+    beachIndices.push(a, b, a + 1, b, b + 1, a + 1)
+  }
+}
+const beachGeometry = new THREE.BufferGeometry()
+beachGeometry.setAttribute('position', new THREE.Float32BufferAttribute(beachPositions, 3))
+beachGeometry.setIndex(beachIndices)
+beachGeometry.computeVertexNormals()
+const beach = new THREE.Mesh(beachGeometry, new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  vertexShader: `
+    varying vec3 vWorld;
+    void main() {
+      vec4 world = modelMatrix * vec4(position, 1.0);
+      vWorld = world.xyz;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }`,
+  fragmentShader: `
+    varying vec3 vWorld;
+    float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y); }
+    void main() {
+      float grain = noise(vWorld.xz*.14)*.55 + noise(vWorld.xz*1.8)*.2 + noise(vWorld.xz*12.0)*.08;
+      float dune = smoothstep(0.0, 7.0, vWorld.y);
+      vec3 wetSand = vec3(.34,.37,.31);
+      vec3 drySand = vec3(.72,.65,.49) * (.78 + grain*.42);
+      vec3 duneGrass = vec3(.43,.48,.36) * (.78 + grain*.3);
+      vec3 col = mix(wetSand, drySand, smoothstep(-1.0,1.8,vWorld.y));
+      col = mix(col, duneGrass, dune*.36);
+      gl_FragColor = vec4(col, 1.0);
+    }`
+}))
+scene.add(beach)
 
 const sticks = Object.fromEntries(['move', 'look', 'wave', 'current'].map(name => [name, new THREE.Vector2()]))
 document.querySelectorAll('.stick').forEach(element => {
@@ -170,14 +267,22 @@ $('#weather').addEventListener('change', event => {
 $('#wind').addEventListener('input', event => { settings.wind = event.target.value / 100; waterUniforms.wind.value = settings.wind; $('#wind-value').textContent = `${event.target.value}%` })
 $('#height').addEventListener('input', event => { settings.height = event.target.value / 100; waterUniforms.amplitude.value = settings.height; $('#height-value').textContent = `${event.target.value}%`; $('#water-label').textContent = settings.height < .25 ? 'Calm' : settings.height < .65 ? 'Gentle' : 'Rolling' })
 $('#color').addEventListener('input', event => waterUniforms.waterColor.value.set(event.target.value))
-$('#depth').addEventListener('input', event => { settings.depth = Number(event.target.value); floor.position.y = -settings.depth; waterUniforms.depth.value = settings.depth; $('#depth-value').textContent = `${settings.depth} m` })
-$('#bottom').addEventListener('change', event => { floor.visible = event.target.value !== 'none'; floor.material.color.set(event.target.value === 'rock' ? '#526c68' : '#b5a680') })
+$('#depth').addEventListener('input', event => { settings.depth = Number(event.target.value); floor.position.y = -settings.depth; waterUniforms.depth.value = settings.depth; floorUniforms.depth.value = settings.depth; $('#depth-value').textContent = `${settings.depth} m` })
+$('#bottom').addEventListener('change', event => { floor.visible = event.target.value !== 'none'; floorUniforms.rock.value = Number(event.target.value === 'rock') })
 
 function waveHeight(x, z, t) {
   const d = settings.wave
   const sideX = -d.y, sideZ = d.x
   const diagonal = new THREE.Vector2(d.x + sideX * .65, d.y + sideZ * .65).normalize()
-  return settings.height * (Math.sin((x*d.x + z*d.y)*.11-t*(.65+settings.wind))*.85 + Math.sin((x*diagonal.x + z*diagonal.y)*.23-t*1.1)*.32 + Math.sin((x*sideX + z*sideZ)*.38+t*.7)*.12)
+  const shortDiagonal = new THREE.Vector2(d.x - sideX * .42, d.y - sideZ * .42).normalize()
+  const crossDiagonal = new THREE.Vector2(sideX + d.x * .28, sideZ + d.y * .28).normalize()
+  return settings.height * (
+    Math.sin((x*d.x + z*d.y)*.09-t*(.58+settings.wind))*.75 +
+    Math.sin((x*diagonal.x + z*diagonal.y)*.19-t*.83)*.3 +
+    Math.sin((x*sideX + z*sideZ)*.31+t*.63)*.12 +
+    Math.sin((x*shortDiagonal.x + z*shortDiagonal.y)*.47-t*1.37)*.045 +
+    Math.sin((x*crossDiagonal.x + z*crossDiagonal.y)*.82+t*.91)*.018
+  )
 }
 let yaw = 0, pitch = 0, previous = performance.now(), elapsed = 0
 const velocity = new THREE.Vector2()
@@ -197,7 +302,7 @@ function animate(now) {
   const slopeX = waveHeight(camera.position.x + .5, camera.position.z, elapsed) - surface
   const slopeZ = waveHeight(camera.position.x, camera.position.z + .5, elapsed) - surface
   camera.rotation.order = 'YXZ'; camera.rotation.set(pitch + slopeZ*.08, yaw, -slopeX*.12)
-  waterUniforms.time.value = elapsed
+  waterUniforms.time.value = floorUniforms.time.value = elapsed
   water.position.x = floor.position.x = sky.position.x = camera.position.x
   water.position.z = floor.position.z = sky.position.z = camera.position.z
   $('#clock').textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`
