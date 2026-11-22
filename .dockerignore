@@ -1,0 +1,17 @@
+.git
+.github
+.devcontainer
+node_modules
+dist
+android
+coverage
+.env
+.env.*
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+npm-debug.log*
+Dockerfile
+.dockerignore
