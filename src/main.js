@@ -1,4 +1,9 @@
 import * as THREE from 'three'
+import { Sky } from 'three/addons/objects/Sky.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -40,7 +45,7 @@ document.querySelector('#app').innerHTML = `
       <label>Wave height <output id="height-value">45%</output><input id="height" type="range" min="0" max="100" value="45" /></label>
     </div>
     <div class="settings-content" id="water-panel" role="tabpanel" hidden>
-      <label>Water color <input id="color" type="color" value="#197b80" /></label>
+      <label>Water color <input id="color" type="color" value="#23677e" /></label>
       <label>Ocean floor <select id="bottom"><option value="sand">Warm sand</option><option value="rock">Deep rock</option><option value="none">Open ocean</option></select></label>
       <label>Depth <output id="depth-value">12 m</output><input id="depth" type="range" min="2" max="40" value="12" /></label>
     </div>
@@ -54,44 +59,88 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'hi
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.1
 $('#world').appendChild(renderer.domElement)
 
 const scene = new THREE.Scene()
-scene.fog = new THREE.FogExp2(0xa6c9c4, 0.006)
+scene.fog = new THREE.FogExp2(0x9abdc7, 0.003)
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1200)
 camera.position.set(0, 1, 0)
 
-const skyUniforms = { topColor: { value: new THREE.Color('#729da6') }, horizonColor: { value: new THREE.Color('#d5ddd1') }, sunColor: { value: new THREE.Color('#fff5d5') }, cloudiness: { value: 0.22 } }
-const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, uniforms: skyUniforms,
-  vertexShader: `varying vec3 vWorld; void main() { vWorld = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+const sky = new Sky()
+sky.scale.setScalar(450000)
+const skyUniforms = sky.material.uniforms
+skyUniforms.turbidity.value = 2.2
+skyUniforms.rayleigh.value = 1.7
+skyUniforms.mieCoefficient.value = 0.004
+skyUniforms.mieDirectionalG.value = 0.82
+const environmentScene = new THREE.Scene()
+environmentScene.add(sky)
+const backdropUniforms = {
+  topColor: { value: new THREE.Color('#527d98') }, horizonColor: { value: new THREE.Color('#b6c8ce') },
+  sunColor: { value: new THREE.Color('#fff0d3') }, sunDirection: { value: new THREE.Vector3() },
+  cloudiness: { value: 0.22 }
+}
+const skyBackdrop = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, uniforms: backdropUniforms,
+  vertexShader: `varying vec3 vDirection; void main() { vDirection = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
-    varying vec3 vWorld; uniform vec3 topColor, horizonColor, sunColor; uniform float cloudiness;
+    varying vec3 vDirection; uniform vec3 topColor, horizonColor, sunColor, sunDirection; uniform float cloudiness;
     float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float noise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y); }
     void main() {
-      vec3 d = normalize(vWorld); float h = max(d.y, 0.0);
-      vec3 col = mix(horizonColor, topColor, smoothstep(0.0, .8, h));
-      vec2 cloudUV = d.xz * 3.0 / (h + .3);
-      float clouds = smoothstep(.58, .85, noise(cloudUV) * .7 + noise(cloudUV * 2.3) * .3 + cloudiness * .25);
-      col = mix(col, vec3(.91,.91,.85), clouds * .35 * smoothstep(.02,.2,h));
-      float sun = pow(max(dot(d, normalize(vec3(-.36,.24,-.9))),0.0), 450.0);
-      float glow = pow(max(dot(d, normalize(vec3(-.36,.24,-.9))),0.0), 8.0);
-      col += sunColor * (sun * .7 + glow * .13);
-      gl_FragColor = vec4(col, 1.0);
+      vec3 direction = normalize(vDirection); float elevation = max(direction.y, 0.0);
+      vec3 color = mix(horizonColor, topColor, smoothstep(0.0, .8, elevation));
+      vec2 cloudUv = direction.xz * 3.0 / (elevation + .3);
+      float clouds = smoothstep(.58, .85, noise(cloudUv) * .7 + noise(cloudUv * 2.3) * .3 + cloudiness * .25);
+      color = mix(color, vec3(.91,.93,.92), clouds * .3 * smoothstep(.02,.2,elevation));
+      float sunDot = max(dot(direction, normalize(sunDirection)), 0.0);
+      color += sunColor * (pow(sunDot, 450.0) * .7 + pow(sunDot, 8.0) * .12);
+      gl_FragColor = vec4(color, 1.0);
     }`
 }))
-scene.add(sky)
+scene.add(skyBackdrop)
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer)
+let environmentTarget
+const sunPosition = new THREE.Vector3()
+function updateEnvironment() {
+  const elevation = settings.weather === 'sunset' ? 8 : settings.weather === 'cloudy' ? 22 : 38
+  const inclination = THREE.MathUtils.degToRad(elevation)
+  const azimuth = THREE.MathUtils.degToRad(110)
+  sunPosition.setFromSphericalCoords(1, Math.PI / 2 - inclination, azimuth)
+  skyUniforms.sunPosition.value.copy(sunPosition)
+  skyUniforms.turbidity.value = settings.weather === 'cloudy' ? 10 : 2.2
+  skyUniforms.rayleigh.value = settings.weather === 'sunset' ? 2.8 : 1.7
+  skyUniforms.mieCoefficient.value = settings.weather === 'cloudy' ? 0.012 : 0.004
+  backdropUniforms.sunDirection.value.copy(sunPosition)
+  const nextTarget = pmremGenerator.fromScene(environmentScene)
+  if (environmentTarget) environmentTarget.dispose()
+  environmentTarget = nextTarget
+  scene.environment = environmentTarget.texture
+  scene.environmentIntensity = 0.8
+}
+updateEnvironment()
+
+const composer = new EffectComposer(renderer)
+composer.addPass(new RenderPass(scene, camera))
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.08, 0.45, 0.95))
+composer.addPass(new SMAAPass(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio()))
 
 const waterUniforms = {
   time: { value: 0 }, amplitude: { value: settings.height }, wind: { value: settings.wind },
-  direction: { value: settings.wave }, waterColor: { value: new THREE.Color('#197b80') },
-  fogColor: { value: scene.fog.color }, depth: { value: settings.depth }
+  direction: { value: settings.wave }, waterColor: { value: new THREE.Color('#23677e') },
+  fogColor: { value: scene.fog.color }, depth: { value: settings.depth },
+  simulation: { value: null }, simulationTexel: { value: new THREE.Vector2(1 / 256, 1 / 256) },
+  skyTop: { value: new THREE.Color('#527d98') }, skyHorizon: { value: new THREE.Color('#9db7c2') },
+  sunColor: { value: new THREE.Color('#fff0d3') }, sunDirection: { value: sunPosition.clone() }
 }
 const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900, 220, 220), new THREE.ShaderMaterial({
   uniforms: waterUniforms, transparent: true,
   vertexShader: `
-    uniform float time, amplitude, wind; uniform vec2 direction; varying vec3 vWorld; varying float vHeight;
+    uniform float time, amplitude, wind; uniform vec2 direction; uniform sampler2D simulation;
+    varying vec3 vWorld; varying float vHeight; varying vec2 vUv;
     float waves(vec2 p) {
       vec2 d = normalize(direction); vec2 side = vec2(-d.y,d.x);
       return amplitude * (
@@ -102,36 +151,123 @@ const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900, 220, 220), new TH
         sin(dot(p,normalize(side+d*.28))*.82+time*.91)*.018
       );
     }
-    void main() { vec4 world = modelMatrix * vec4(position,1.0); world.y += waves(world.xz); vHeight = world.y; vWorld = world.xyz; gl_Position = projectionMatrix * viewMatrix * world; }`,
+    void main() {
+      vUv = uv;
+      vec4 world = modelMatrix * vec4(position,1.0);
+      world.y += waves(world.xz) + texture2D(simulation, uv).r * 1.8;
+      vHeight = world.y; vWorld = world.xyz;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }`,
   fragmentShader: `
-    uniform vec3 waterColor, fogColor; uniform float depth, time, wind, amplitude; varying vec3 vWorld; varying float vHeight;
+    uniform vec3 waterColor, fogColor, skyTop, skyHorizon, sunColor, sunDirection;
+    uniform float depth, time, wind, amplitude; uniform sampler2D simulation; uniform vec2 simulationTexel;
+    varying vec3 vWorld; varying float vHeight; varying vec2 vUv;
     float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float noise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y); }
+    vec3 skyRadiance(vec3 direction) {
+      float elevation = max(direction.y, 0.0);
+      vec3 sky = mix(skyHorizon, skyTop, smoothstep(0.0, 0.8, elevation));
+      float sunGlow = pow(max(dot(direction, normalize(sunDirection)), 0.0), 12.0);
+      return sky + sunColor * sunGlow * 0.22;
+    }
     void main() {
       vec3 n = normalize(cross(dFdy(vWorld), dFdx(vWorld))); if (n.y < 0.0) n = -n;
       float detail = noise(vWorld.xz*.72 + vec2(time*.035,-time*.025)) - .5;
+      float simDx = texture2D(simulation, vUv + vec2(simulationTexel.x, 0.0)).r - texture2D(simulation, vUv - vec2(simulationTexel.x, 0.0)).r;
+      float simDz = texture2D(simulation, vUv + vec2(0.0, simulationTexel.y)).r - texture2D(simulation, vUv - vec2(0.0, simulationTexel.y)).r;
       n = normalize(n + vec3(
         cos(vWorld.x*.8+time*.9)*.045 + cos(vWorld.x*1.7+vWorld.z*.6-time)*.022 + detail*.13,
         0.0,
         sin(vWorld.z*.9-time*.8)*.045 + cos(vWorld.z*1.5-vWorld.x*.4+time)*.022 - detail*.13
-      ) * (0.25 + wind));
+      ) * (0.25 + wind) + vec3(simDx * 2.2, 0.0, simDz * 2.2));
       vec3 viewDir = normalize(cameraPosition-vWorld); float fresnel = pow(1.0-max(dot(viewDir,n),0.0),3.0);
-      vec3 sun = normalize(vec3(-.36,.24,-.9)); float shine = pow(max(dot(reflect(-sun,n),viewDir),0.0),80.0);
-      float broadShine = pow(max(dot(reflect(-sun,n),viewDir),0.0),14.0);
+      fresnel = .02 + .98 * pow(1.0 - max(dot(viewDir,n),0.0), 5.0);
+      vec3 sun = normalize(sunDirection); float specular = max(dot(reflect(-sun,n),viewDir),0.0);
+      float shine = pow(specular,96.0);
+      float broadShine = pow(specular,18.0);
       float ripples = sin(vWorld.x*.7+time)*sin(vWorld.z*.8-time*.7)*.018 + detail*.025;
       float foam = smoothstep(amplitude*.72, amplitude*1.15, vHeight) * smoothstep(.58,.88,amplitude);
       foam *= smoothstep(.32,.68,noise(vWorld.xz*.24 + vec2(time*.08,-time*.05)));
-      vec3 deepColor = waterColor * vec3(.38,.67,.7);
-      vec3 col = mix(deepColor, waterColor * (1.0 + vHeight*.08 + ripples), .72);
-      col = mix(col, vec3(.67,.79,.75), .18 + fresnel*.62);
-      col += vec3(1.0,.95,.79)*(shine*(.34+wind*.3) + broadShine*.08);
-      col = mix(col, vec3(.83,.88,.79), foam*.42);
-      float fog = 1.0-exp(-pow(length(cameraPosition-vWorld)*.006,2.0)); col = mix(col,fogColor,fog);
+      vec3 deepColor = waterColor * vec3(.36,.66,.82);
+      vec3 refracted = deepColor * (1.0 + vHeight*.08 + ripples);
+      vec3 reflected = skyRadiance(reflect(-viewDir,n));
+      vec3 col = mix(refracted, reflected, fresnel);
+      col += sunColor * (shine*(.55+wind*.35) + broadShine*.09);
+      col = mix(col, vec3(.78,.86,.84), foam*.3);
+      float fog = 1.0-exp(-pow(length(cameraPosition-vWorld)*.003,2.0)); col = mix(col,fogColor,fog);
       gl_FragColor = vec4(col, mix(.76,.97,clamp(depth/30.0,0.0,1.0)));
     }`
 }))
 water.rotation.x = -Math.PI / 2
 scene.add(water)
+
+const simulationSize = 256
+const simulationTargets = [0, 1].map(() => new THREE.WebGLRenderTarget(simulationSize, simulationSize, {
+  format: THREE.RGBAFormat, type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  depthBuffer: false, stencilBuffer: false, generateMipmaps: false
+}))
+const simulationUniforms = {
+  state: { value: null }, texel: { value: 1 / simulationSize }, delta: { value: 1 / 60 },
+  impulse: { value: new THREE.Vector3(-10, -10, 0) }
+}
+const simulationScene = new THREE.Scene()
+const simulationCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+simulationScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: simulationUniforms,
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D state; uniform float texel, delta; uniform vec3 impulse; varying vec2 vUv;
+    void main() {
+      vec2 uv = clamp(vUv, vec2(texel), vec2(1.0 - texel));
+      vec2 value = texture2D(state, uv).rg;
+      float left = texture2D(state, uv - vec2(texel, 0.0)).r;
+      float right = texture2D(state, uv + vec2(texel, 0.0)).r;
+      float down = texture2D(state, uv - vec2(0.0, texel)).r;
+      float up = texture2D(state, uv + vec2(0.0, texel)).r;
+      float laplacian = left + right + down + up - 4.0 * value.r;
+      float velocity = (value.g + laplacian * 0.22) * 0.992;
+      float drop = exp(-dot((uv - impulse.xy) * vec2(90.0, 90.0), (uv - impulse.xy) * vec2(90.0, 90.0)));
+      velocity += drop * impulse.z;
+      float height = clamp(value.r + velocity * (delta * 60.0), -0.5, 0.5);
+      gl_FragColor = vec4(height, velocity, 0.0, 1.0);
+    }`
+})))
+let simulationIndex = 0
+waterUniforms.simulation.value = simulationTargets[simulationIndex].texture
+waterUniforms.simulationTexel.value.set(1 / simulationSize, 1 / simulationSize)
+const queuedImpulse = new THREE.Vector3(-10, -10, 0)
+const raycaster = new THREE.Raycaster()
+const pointer = new THREE.Vector2()
+let lastPointerImpulse = 0
+function queueRipple(event) {
+  const now = performance.now()
+  if (now - lastPointerImpulse < 70) return
+  lastPointerImpulse = now
+  const bounds = renderer.domElement.getBoundingClientRect()
+  pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1)
+  raycaster.setFromCamera(pointer, camera)
+  const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3())
+  if (!hit) return
+  const local = water.worldToLocal(hit)
+  queuedImpulse.set(local.x / 900 + 0.5, local.y / 900 + 0.5, event.type === 'pointerdown' ? 0.2 : 0.08)
+}
+renderer.domElement.addEventListener('pointerdown', queueRipple)
+renderer.domElement.addEventListener('pointermove', queueRipple)
+let nextRaindrop = 1
+function stepSimulation(delta) {
+  simulationUniforms.state.value = simulationTargets[simulationIndex].texture
+  simulationUniforms.delta.value = delta
+  simulationUniforms.impulse.value.copy(queuedImpulse)
+  queuedImpulse.z = 0
+  const destination = 1 - simulationIndex
+  const previousTarget = renderer.getRenderTarget()
+  renderer.setRenderTarget(simulationTargets[destination])
+  renderer.render(simulationScene, simulationCamera)
+  renderer.setRenderTarget(previousTarget)
+  simulationIndex = destination
+  waterUniforms.simulation.value = simulationTargets[simulationIndex].texture
+}
+
 const floorUniforms = { time: { value: 0 }, depth: { value: settings.depth }, rock: { value: 0 }, sandColor: { value: new THREE.Color('#b5a680') }, fogColor: { value: scene.fog.color } }
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.ShaderMaterial({
   uniforms: floorUniforms,
@@ -256,13 +392,22 @@ document.querySelectorAll('[data-tab]').forEach(tab => tab.addEventListener('cli
 $('#weather').addEventListener('change', event => {
   settings.weather = event.target.value
   const presets = {
-    clear: ['#729da6', '#d5ddd1', '#fff5d5', .22, 'Clear skies'],
-    cloudy: ['#71878c', '#b6c4c0', '#e1e6e2', .85, 'Overcast'],
-    sunset: ['#8c8798', '#e6bca0', '#ffd49a', .32, 'Golden hour']
+    clear: ['#527d98', '#9db7c2', '#fff0d3', 'Clear skies'],
+    cloudy: ['#5d7686', '#9aabb3', '#d9e0e3', 'Overcast'],
+    sunset: ['#8c8798', '#e6bca0', '#ffd49a', 'Golden hour']
   }
-  const [top, horizon, sun, clouds, label] = presets[settings.weather]
-  skyUniforms.topColor.value.set(top); skyUniforms.horizonColor.value.set(horizon); skyUniforms.sunColor.value.set(sun); skyUniforms.cloudiness.value = clouds
-  scene.fog.color.set(horizon); $('#weather-label').textContent = label
+  const [top, horizon, sun, label] = presets[settings.weather]
+  backdropUniforms.topColor.value.set(top)
+  backdropUniforms.horizonColor.value.set(horizon)
+  backdropUniforms.sunColor.value.set(sun)
+  backdropUniforms.cloudiness.value = settings.weather === 'cloudy' ? .85 : settings.weather === 'sunset' ? .32 : .22
+  waterUniforms.skyTop.value.set(top)
+  waterUniforms.skyHorizon.value.set(horizon)
+  waterUniforms.sunColor.value.set(sun)
+  updateEnvironment()
+  waterUniforms.sunDirection.value.copy(sunPosition)
+  scene.fog.color.set(horizon)
+  $('#weather-label').textContent = label
 })
 $('#wind').addEventListener('input', event => { settings.wind = event.target.value / 100; waterUniforms.wind.value = settings.wind; $('#wind-value').textContent = `${event.target.value}%` })
 $('#height').addEventListener('input', event => { settings.height = event.target.value / 100; waterUniforms.amplitude.value = settings.height; $('#height-value').textContent = `${event.target.value}%`; $('#water-label').textContent = settings.height < .25 ? 'Calm' : settings.height < .65 ? 'Gentle' : 'Rolling' })
@@ -303,11 +448,22 @@ function animate(now) {
   const slopeZ = waveHeight(camera.position.x, camera.position.z + .5, elapsed) - surface
   camera.rotation.order = 'YXZ'; camera.rotation.set(pitch + slopeZ*.08, yaw, -slopeX*.12)
   waterUniforms.time.value = floorUniforms.time.value = elapsed
-  water.position.x = floor.position.x = sky.position.x = camera.position.x
-  water.position.z = floor.position.z = sky.position.z = camera.position.z
+  water.position.x = floor.position.x = skyBackdrop.position.x = camera.position.x
+  water.position.z = floor.position.z = skyBackdrop.position.z = camera.position.z
+  if (elapsed >= nextRaindrop && queuedImpulse.z === 0) {
+    queuedImpulse.set(Math.random() * .9 + .05, Math.random() * .9 + .05, .035)
+    nextRaindrop = elapsed + 1.2 + Math.random() * 2.4
+  }
+  stepSimulation(Math.max(dt, 1 / 120))
   $('#clock').textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`
-  renderer.render(scene, camera)
+  composer.render()
   requestAnimationFrame(animate)
 }
-window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); renderer.setSize(window.innerWidth, window.innerHeight) })
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  composer.setSize(window.innerWidth, window.innerHeight)
+})
 requestAnimationFrame(animate)
