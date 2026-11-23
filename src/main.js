@@ -206,6 +206,16 @@ const simulationTargets = [0, 1].map(() => new THREE.WebGLRenderTarget(simulatio
   format: THREE.RGBAFormat, type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
   depthBuffer: false, stencilBuffer: false, generateMipmaps: false
 }))
+const previousTarget = renderer.getRenderTarget()
+const previousClearColor = renderer.getClearColor(new THREE.Color())
+const previousClearAlpha = renderer.getClearAlpha()
+renderer.setClearColor(0x000000, 0)
+simulationTargets.forEach(target => {
+  renderer.setRenderTarget(target)
+  renderer.clear(true, false, false)
+})
+renderer.setRenderTarget(previousTarget)
+renderer.setClearColor(previousClearColor, previousClearAlpha)
 const simulationUniforms = {
   state: { value: null }, texel: { value: 1 / simulationSize }, delta: { value: 1 / 60 },
   impulse: { value: new THREE.Vector3(-10, -10, 0) }
