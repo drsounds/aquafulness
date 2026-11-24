@@ -12,6 +12,7 @@ document.querySelector('#app').innerHTML = `
   <header class="topbar">
     <div class="brand"><span class="brand-mark">≈</span><span>aquafulness<small>YOUR MOMENT OF CALM</small></span></div>
     <div class="top-right"><span class="live-dot"></span> LIVE SIMULATION <span class="divider"></span><span id="clock">00:00</span></div>
+    <div id="build-info" class="build-info"></div>
   </header>
   <main class="intro">
     <div class="eyebrow"><span></span> THE OPEN WATER</div>
@@ -54,6 +55,7 @@ document.querySelector('#app').innerHTML = `
 `
 
 const $ = (selector) => document.querySelector(selector)
+$('#build-info').textContent = `BUILD ${__BUILD_NUMBER__} · ${__BUILD_DATE__.replace('T', ' ').slice(0, 16)} UTC`
 const settings = { wind: 0.35, height: 0.45, depth: 12, weather: 'clear', wave: new THREE.Vector2(0.8, 0.6), current: new THREE.Vector2(0, 0) }
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
